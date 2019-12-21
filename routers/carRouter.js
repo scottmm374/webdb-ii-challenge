@@ -2,16 +2,27 @@ const express = require("express");
 const db = require("../utils/db");
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/", async (req, res, next) => {
   try {
     const cars = await db("cars").select();
     res.json(cars);
   } catch (err) {
-    console.log(err);
+    next(err);
   }
 });
 
-router.post("/", async (req, res) => {
+router.get("/:id", validateId, async (req, res, next) => {
+  try {
+    const cars = await db("cars")
+      .where("id", req.params.id)
+      .select();
+    res.json(cars);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/", async (req, res, next) => {
   try {
     const ids = await db("cars").insert(req.body);
     const newCar = await db("cars")
@@ -19,11 +30,11 @@ router.post("/", async (req, res) => {
       .first();
     res.status(201).json(newCar);
   } catch (err) {
-    console.log(err);
+    next(err);
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", validateId, async (req, res, next) => {
   try {
     const payload = {
       VIN: req.body.VIN,
@@ -41,20 +52,36 @@ router.put("/:id", async (req, res) => {
         .where("id", req.params.id)
         .first()
     );
-    // res.status(201).json(updateCar);
   } catch (err) {
-    console.log(err);
+    next(err);
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", validateId, async (req, res, next) => {
   try {
     await db("cars")
       .where("id", req.params.id)
       .del();
     res.status(200).end();
   } catch (err) {
-    console.log(err);
+    next(err);
   }
 });
+
+// Middleware
+async function validateId(req, res, next) {
+  try {
+    const cars = await db("cars")
+      .where("id", req.params.id)
+      .first();
+    if (cars) {
+      next();
+    } else {
+      res.status(404).json({ message: "Id not found" });
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = router;
